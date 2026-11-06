@@ -1,0 +1,12 @@
+cnn: 468,010 params | device=cpu | train=55000 val=5000 test=10000 (test untouched)
+epoch  1 | train loss 0.4557 acc 0.8634 | val loss 0.0803 acc 0.9746 | 44.8s
+epoch  2 | train loss 0.1143 acc 0.9647 | val loss 0.0934 acc 0.9690 | 90.3s
+epoch  3 | train loss 0.0946 acc 0.9723 | val loss 0.0692 acc 0.9812 | 135.6s
+epoch  4 | train loss 0.0695 acc 0.9800 | val loss 0.0697 acc 0.9802 | 179.5s
+epoch  5 | train loss 0.0570 acc 0.9830 | val loss 0.0355 acc 0.9890 | 224.1s
+epoch  6 | train loss 0.0431 acc 0.9871 | val loss 0.0535 acc 0.9842 | 271.0s
+epoch  7 | train loss 0.0348 acc 0.9894 | val loss 0.0231 acc 0.9932 | 324.1s
+epoch  8 | train loss 0.0258 acc 0.9925 | val loss 0.0185 acc 0.9956 | 367.3s
+epoch  9 | train loss 0.0208 acc 0.9936 | val loss 0.0184 acc 0.9958 | 411.4s
+epoch 10 | train loss 0.0177 acc 0.9948 | val loss 0.0184 acc 0.9960 | 452.5s
+saved best checkpoint (score=0.9960) to checkpoints/cnn.pt

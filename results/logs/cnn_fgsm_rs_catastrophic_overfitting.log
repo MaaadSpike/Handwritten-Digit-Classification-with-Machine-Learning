@@ -1,0 +1,14 @@
+cnn: 468,010 params | device=cpu | train=55000 val=5000 test=10000 (test untouched)
+epoch  1 | train loss 0.7896 acc 0.7493 | val loss 0.0640 acc 0.9808 | val PGD-10@0.3 0.0000 | 82.3s
+epoch  2 | train loss 0.4275 acc 0.8593 | val loss 0.0688 acc 0.9798 | val PGD-10@0.3 0.0030 | 166.8s
+epoch  3 | train loss 0.4629 acc 0.8479 | val loss 0.0643 acc 0.9800 | val PGD-10@0.3 0.4750 | 250.6s
+epoch  4 | train loss 0.2191 acc 0.9306 | val loss 0.1207 acc 0.9698 | val PGD-10@0.3 0.0010 | 334.3s
+epoch  5 | train loss 0.0818 acc 0.9754 | val loss 0.2527 acc 0.9402 | val PGD-10@0.3 0.0000 | 417.8s
+epoch  6 | train loss 0.0666 acc 0.9799 | val loss 0.1568 acc 0.9648 | val PGD-10@0.3 0.0000 | 501.0s
+epoch  7 | train loss 0.0516 acc 0.9847 | val loss 0.1254 acc 0.9708 | val PGD-10@0.3 0.0000 | 581.7s
+epoch  8 | train loss 0.0378 acc 0.9883 | val loss 0.0970 acc 0.9764 | val PGD-10@0.3 0.0000 | 665.2s
+epoch  9 | train loss 0.0326 acc 0.9904 | val loss 0.0918 acc 0.9788 | val PGD-10@0.3 0.0000 | 748.8s
+epoch 10 | train loss 0.0267 acc 0.9918 | val loss 0.1151 acc 0.9734 | val PGD-10@0.3 0.0010 | 833.2s
+epoch 11 | train loss 0.0196 acc 0.9938 | val loss 0.1096 acc 0.9758 | val PGD-10@0.3 0.0020 | 919.9s
+epoch 12 | train loss 0.0180 acc 0.9947 | val loss 0.1053 acc 0.9768 | val PGD-10@0.3 0.0010 | 1004.1s
+saved best checkpoint (score=0.4750) to checkpoints/cnn_adv.pt

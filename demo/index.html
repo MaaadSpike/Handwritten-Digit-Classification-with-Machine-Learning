@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MNIST Digit Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: lab-notebook page on faint graph paper; two working panels (draw → read out), then an attack bench. */
+:root {
+  --paper: #f5f7fa;
+  --sheet: #ffffff;
+  --grid: #e3e8ef;
+  --ink: #101828;
+  --ink-2: #4a5567;
+  --ink-3: #7a8597;
+  --rule: #d5dce6;
+  --cnn: #eb6834;
+  --robust: #1baf7a;
+  --track: #eceff4;
+  --badge-bg: #101828;
+  --badge-fg: #ffffff;
+  --focus: #2a78d6;
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f141b; --sheet: #161d26; --grid: #1c2430; --ink: #eef1f5; --ink-2: #b4bdca; --ink-3: #8691a2;
+    --rule: #2a3442; --cnn: #d95926; --robust: #199e70; --track: #222b37; --badge-bg: #eef1f5; --badge-fg: #101828;
+    --focus: #3987e5; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f141b; --sheet: #161d26; --grid: #1c2430; --ink: #eef1f5; --ink-2: #b4bdca; --ink-3: #8691a2;
+  --rule: #2a3442; --cnn: #d95926; --robust: #199e70; --track: #222b37; --badge-bg: #eef1f5; --badge-fg: #101828;
+  --focus: #3987e5; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px;
+  color: var(--ink);
+  font: 400 15px/1.55 var(--f-body);
+}
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding-block: 40px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 28px;
+}
+header { display: grid; gap: 10px; max-width: 68ch; }
+.eyebrow { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+h1 { font: 700 clamp(34px, 6vw, 54px)/1.02 var(--f-display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font: 700 22px/1.2 var(--f-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+p { margin: 0; }
+.lede { color: var(--ink-2); font-size: 16px; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 400 13px/1.4 var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.facts b { color: var(--ink); font-weight: 500; }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.key.cnn { background: var(--cnn); } .key.robust { background: var(--robust); }
+
+.panel {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.panel-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.hint { color: var(--ink-2); font-size: 14px; max-width: 62ch; }
+
+.draw-grid { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 760px) { .draw-grid { grid-template-columns: minmax(0, 1fr); } }
+.pad-col { display: grid; gap: 12px; min-width: 0; }
+.pad {
+  width: 100%; max-width: 320px; aspect-ratio: 1; display: block;
+  background: var(--paper); border: 1px dashed var(--rule); border-radius: 4px;
+  touch-action: none; cursor: crosshair;
+}
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button {
+  font: 500 13px/1 var(--f-body); color: var(--ink); background: var(--sheet);
+  border: 1px solid var(--rule); border-radius: 4px; padding: 8px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--ink-3); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+button.digit { font-family: var(--f-mono); width: 30px; padding: 7px 0; }
+.seen { display: flex; align-items: center; gap: 12px; color: var(--ink-3); font: 400 12px/1.4 var(--f-mono); }
+.seen canvas { width: 56px; height: 56px; image-rendering: pixelated; border: 1px solid var(--rule); border-radius: 3px; }
+
+.readouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; min-width: 0; }
+@media (max-width: 520px) { .readouts { grid-template-columns: minmax(0, 1fr); } }
+.readout { display: grid; gap: 10px; min-width: 0; }
+.readout-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--rule); padding-bottom: 8px; }
+.readout-name { font: 600 14px/1.2 var(--f-body); }
+.verdict { font: 700 40px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.verdict small { font: 400 13px var(--f-mono); color: var(--ink-2); margin-left: 6px; }
+.bars { display: grid; gap: 5px; }
+.bar { display: grid; grid-template-columns: 14px minmax(0, 1fr) 46px; gap: 10px; align-items: center; font: 400 12.5px/1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.bar .lbl { color: var(--ink-2); }
+.bar .pct { text-align: right; color: var(--ink-2); }
+.bar.top .lbl, .bar.top .pct { color: var(--ink); font-weight: 500; }
+.track { display: block; height: 10px; background: var(--track); border-radius: 2px; overflow: hidden; }
+.fill { display: block; height: 100%; width: 0; border-radius: 0 4px 4px 0; transition: width .18s ease-out; }
+.readout.cnn .fill { background: var(--cnn); }
+.readout.robust .fill { background: var(--robust); }
+.empty { color: var(--ink-3); font-size: 13px; }
+
+.bench-controls { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; }
+.seg button[aria-pressed="true"] { background: var(--badge-bg); color: var(--badge-fg); }
+.ctl-label { font: 500 12px/1 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-right: 10px; }
+.eps { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.eps input { width: 200px; max-width: 60vw; accent-color: var(--ink); }
+.eps output { font: 500 14px/1 var(--f-mono); font-variant-numeric: tabular-nums; min-width: 9ch; }
+.tally { font: 400 13px/1.5 var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tally b { color: var(--ink); font-weight: 500; }
+.tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { display: grid; gap: 6px; min-width: 0; }
+.tile canvas { width: 100%; aspect-ratio: 1; image-rendering: pixelated; border: 1px solid var(--rule); border-radius: 3px; display: block; }
+.pred { display: flex; align-items: center; justify-content: space-between; gap: 6px; font: 400 12px/1.2 var(--f-mono); font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 0; }
+.pred .who { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
+.pred .res { white-space: nowrap; color: var(--ink); }
+.pred .res.fooled { background: var(--badge-bg); color: var(--badge-fg); padding: 2px 5px; border-radius: 3px; }
+
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; color: var(--ink-2); font-size: 13.5px; }
+@media (max-width: 760px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+.notes h3 { font: 600 13px/1.3 var(--f-body); color: var(--ink); margin: 0 0 4px; }
+.notes code { font-family: var(--f-mono); font-size: 12.5px; }
+a { color: var(--ink); text-underline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">MNIST · 28 × 28 grayscale · 10 classes</div>
+    <h1>MNIST Digit Lab</h1>
+    <p class="lede">Draw a digit and watch two convolutional networks classify it, then see how small pixel perturbations fool a standard CNN but not an adversarially trained one. Both models run in your browser in plain JavaScript.</p>
+    <div class="facts" id="facts"></div>
+  </header>
+
+  <section class="panel" aria-labelledby="draw-title">
+    <div class="panel-head">
+      <h2 id="draw-title">Draw a digit</h2>
+      <p class="hint">Write one digit, large and centred. It is cropped, scaled to a 20 × 20 box and centred by mass in 28 × 28, the same preprocessing MNIST used.</p>
+    </div>
+    <div class="draw-grid">
+      <div class="pad-col">
+        <canvas id="pad" class="pad" width="280" height="280" aria-label="Drawing area"></canvas>
+        <div class="row">
+          <button id="clear" type="button">Clear</button>
+          <span class="ctl-label" style="margin:0 0 0 6px">Load test digit</span>
+        </div>
+        <div class="row" id="samples"></div>
+        <div class="seen"><canvas id="seen" width="28" height="28"></canvas><span>model input<br>28 × 28</span></div>
+      </div>
+      <div class="readouts">
+        <div class="readout cnn" id="ro-cnn"></div>
+        <div class="readout robust" id="ro-robust"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="bench-title">
+    <div class="panel-head">
+      <h2 id="bench-title">Adversarial bench</h2>
+      <p class="hint">Ten test digits attacked with PGD (40 steps, L∞ budget ε in pixel units, white-box gradients from the chosen model). Every pixel moves by at most ε, yet the standard CNN's prediction flips.</p>
+    </div>
+    <div class="bench-controls">
+      <div><span class="ctl-label">Crafted against</span>
+        <span class="seg" role="group" aria-label="Model the attack is crafted against">
+          <button type="button" id="ag-cnn" aria-pressed="true">CNN</button>
+          <button type="button" id="ag-robust" aria-pressed="false">Robust CNN</button>
+        </span>
+      </div>
+      <label class="eps" for="eps"><span class="ctl-label" style="margin:0">ε</span>
+        <input type="range" id="eps" min="0" max="6" step="1" value="3">
+        <output id="eps-out" for="eps"></output>
+      </label>
+    </div>
+    <p class="tally" id="tally"></p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section class="notes" aria-label="How it works">
+    <div><h3>Models</h3><p>Both CNNs share one architecture: two conv-conv-pool blocks and a 128-unit hidden layer, about 0.47M parameters. The robust one was trained on PGD adversarial examples (5 steps, ε = 0.3; Madry et al., 2018).</p></div>
+    <div><h3>In the browser</h3><p>BatchNorm is folded into the convolutions, weights are stored as float16, and the forward pass is about 100 lines of JavaScript (<code>digitnet.js</code>). The attacked images were generated in PyTorch and stored as 8-bit images.</p></div>
+    <div><h3>Source</h3><p>Training, evaluation and attack code: <a href="https://github.com/MaaadSpike/Handwritten-Digit-Classification-with-Machine-Learning" target="_blank" rel="noopener">GitHub repository</a>. Numbers come from the held-out 10,000-image MNIST test set.</p></div>
+  </section>
+</div>
+
+<script src="model_data.js"></script>
+<script src="digitnet.js"></script>
+<script>
+(function () {
+  "use strict";
+  const D = window.MODEL_DATA;
+  const nets = { cnn: DigitNet.load(D.models.cnn), robust: DigitNet.load(D.models.cnn_adv) };
+  const NAMES = { cnn: "CNN", robust: "Robust CNN" };
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const pct = (p) => (p * 100 >= 99.95 ? "100" : (p * 100).toFixed(1)) + "%";
+
+  // ---------- header facts
+  if (D.metrics) {
+    const m = D.metrics, last = (o) => o[Object.keys(o).slice(-1)[0]];
+    document.getElementById("facts").innerHTML =
+      `<span><i class="key cnn"></i>CNN <b>${(m.cnn.test_acc * 100).toFixed(2)}%</b> clean · <b>${(last(m.cnn.pgd) * 100).toFixed(1)}%</b> under PGD ε=0.3</span>` +
+      `<span><i class="key robust"></i>Robust CNN <b>${(m.cnn_adv.test_acc * 100).toFixed(2)}%</b> clean · <b>${(last(m.cnn_adv.pgd) * 100).toFixed(1)}%</b> under PGD ε=0.3</span>`;
+  }
+
+  // ---------- readouts
+  function buildReadout(key) {
+    const el = document.getElementById("ro-" + key);
+    el.innerHTML = `<div class="readout-head"><span class="readout-name"><i class="key ${key}"></i>${NAMES[key]}</span><span class="verdict" id="v-${key}">–</span></div>` +
+      `<div class="bars">${Array.from({ length: 10 }, (_, d) =>
+        `<div class="bar" id="b-${key}-${d}"><span class="lbl">${d}</span><span class="track"><span class="fill"></span></span><span class="pct">0.0%</span></div>`).join("")}</div>`;
+  }
+  buildReadout("cnn"); buildReadout("robust");
+
+  function showReadout(key, probs) {
+    const v = document.getElementById("v-" + key);
+    if (!probs) { v.innerHTML = "–"; }
+    let top = -1;
+    if (probs) { top = probs.indexOf(Math.max(...probs)); v.innerHTML = `${top}<small>${pct(probs[top])}</small>`; }
+    for (let d = 0; d < 10; d++) {
+      const row = document.getElementById(`b-${key}-${d}`);
+      const p = probs ? probs[d] : 0;
+      row.querySelector(".fill").style.width = (p * 100).toFixed(2) + "%";
+      row.querySelector(".pct").textContent = probs ? pct(p) : "–";
+      row.classList.toggle("top", d === top);
+    }
+  }
+
+  // ---------- drawing pad
+  const pad = document.getElementById("pad");
+  const pctx = pad.getContext("2d", { willReadFrequently: true });
+  const seen = document.getElementById("seen");
+  const sctx = seen.getContext("2d");
+  let drawing = false, last = null;
+
+  function padPoint(e) {
+    const r = pad.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * pad.width / r.width, y: (e.clientY - r.top) * pad.height / r.height };
+  }
+  function strokeTo(p) {
+    pctx.strokeStyle = css("--ink"); pctx.lineWidth = 22; pctx.lineCap = "round"; pctx.lineJoin = "round";
+    pctx.beginPath(); pctx.moveTo(last.x, last.y); pctx.lineTo(p.x, p.y); pctx.stroke();
+    last = p;
+  }
+  pad.addEventListener("pointerdown", (e) => { drawing = true; pad.setPointerCapture(e.pointerId); last = padPoint(e); strokeTo({ x: last.x + 0.01, y: last.y }); });
+  pad.addEventListener("pointermove", (e) => { if (drawing) strokeTo(padPoint(e)); });
+  ["pointerup", "pointercancel"].forEach((t) => pad.addEventListener(t, () => { if (drawing) { drawing = false; classifyPad(); } }));
+  document.getElementById("clear").addEventListener("click", () => { pctx.clearRect(0, 0, 280, 280); classifyPad(); });
+
+  // Alpha channel = ink intensity, independent of the theme's ink colour.
+  function padToMnist() {
+    const a = pctx.getImageData(0, 0, 280, 280).data;
+    const W = 280, inten = new Float32Array(W * W);
+    let x0 = W, y0 = W, x1 = -1, y1 = -1;
+    for (let i = 0; i < W * W; i++) {
+      const v = a[i * 4 + 3] / 255; inten[i] = v;
+      if (v > 0.05) { const x = i % W, y = (i / W) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return null;
+    const bw = x1 - x0 + 1, bh = y1 - y0 + 1, s = 20 / Math.max(bw, bh);
+    const nw = Math.max(1, Math.round(bw * s)), nh = Math.max(1, Math.round(bh * s));
+    const small = new Float32Array(nw * nh);            // box-filter downsample
+    for (let ty = 0; ty < nh; ty++) for (let tx = 0; tx < nw; tx++) {
+      const sx0 = x0 + Math.floor(tx * bw / nw), sx1 = x0 + Math.max(Math.floor((tx + 1) * bw / nw), Math.floor(tx * bw / nw) + 1);
+      const sy0 = y0 + Math.floor(ty * bh / nh), sy1 = y0 + Math.max(Math.floor((ty + 1) * bh / nh), Math.floor(ty * bh / nh) + 1);
+      let sum = 0, n = 0;
+      for (let y = sy0; y < sy1; y++) for (let x = sx0; x < sx1; x++) { sum += inten[y * W + x]; n++; }
+      small[ty * nw + tx] = sum / n;
+    }
+    let m = 0, cx = 0, cy = 0;                           // centre of mass
+    for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) { const v = small[y * nw + x]; m += v; cx += v * x; cy += v * y; }
+    cx /= m; cy /= m;
+    const ox = Math.round(13.5 - cx), oy = Math.round(13.5 - cy);
+    const out = new Float32Array(784);
+    for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) {
+      const X = x + ox, Y = y + oy;
+      if (X >= 0 && X < 28 && Y >= 0 && Y < 28) out[Y * 28 + X] = Math.min(1, small[y * nw + x]);
+    }
+    return out;
+  }
+
+  function paintDigit(ctx, pixels) {             // 28x28 ink-on-paper rendering
+    const img = ctx.createImageData(28, 28);
+    const ink = hexRgb(css("--ink")), paper = hexRgb(css("--paper"));
+    for (let i = 0; i < 784; i++) {
+      const v = pixels ? pixels[i] : 0;
+      for (let c = 0; c < 3; c++) img.data[i * 4 + c] = Math.round(paper[c] + (ink[c] - paper[c]) * v);
+      img.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+  function hexRgb(h) { h = h.replace("#", ""); if (h.length === 3) h = h.split("").map((c) => c + c).join(""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); }
+
+  let padPixels = null;
+  function classifyPad() {
+    padPixels = padToMnist();
+    paintDigit(sctx, padPixels);
+    for (const k of ["cnn", "robust"]) showReadout(k, padPixels ? DigitNet.softmax(DigitNet.forward(nets[k], padPixels)) : null);
+  }
+
+  // ---------- gallery data
+  const G = D.gallery;
+  const nEps = G.eps.length;
+  const decoded = {};
+  for (const [k, b64] of Object.entries(G.against)) {
+    const bytes = DigitNet.b64ToBytes(b64), arr = [];
+    for (let e = 0; e < nEps; e++) {
+      arr.push([]);
+      for (let d = 0; d < 10; d++) {
+        const off = (e * 10 + d) * 784, px = new Float32Array(784);
+        for (let i = 0; i < 784; i++) px[i] = bytes[off + i] / 255;
+        arr[e].push(px);
+      }
+    }
+    decoded[k === "cnn_adv" ? "robust" : k] = arr;
+  }
+
+  function loadSample(d) {                       // draw a clean test digit onto the pad
+    const px = decoded.cnn[0][d];
+    const tmp = document.createElement("canvas"); tmp.width = tmp.height = 28;
+    const t = tmp.getContext("2d"), img = t.createImageData(28, 28), ink = hexRgb(css("--ink"));
+    for (let i = 0; i < 784; i++) { img.data[i * 4] = ink[0]; img.data[i * 4 + 1] = ink[1]; img.data[i * 4 + 2] = ink[2]; img.data[i * 4 + 3] = Math.round(px[i] * 255); }
+    t.putImageData(img, 0, 0);
+    pctx.clearRect(0, 0, 280, 280);
+    pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = "high";
+    pctx.drawImage(tmp, 0, 0, 280, 280);
+    classifyPad();
+  }
+  const samples = document.getElementById("samples");
+  G.labels.forEach((lab, d) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "digit"; b.textContent = lab;
+    b.setAttribute("aria-label", "Load test digit " + lab); b.addEventListener("click", () => loadSample(d)); samples.appendChild(b);
+  });
+
+  // ---------- adversarial bench
+  let against = "cnn";
+  const epsInput = document.getElementById("eps"), epsOut = document.getElementById("eps-out");
+  const tiles = document.getElementById("tiles");
+  const tileEls = G.labels.map((lab) => {
+    const t = document.createElement("div"); t.className = "tile";
+    t.innerHTML = `<canvas width="28" height="28" aria-label="Test digit ${lab}"></canvas>` +
+      `<div class="pred" data-k="cnn"><span class="who"><i class="key cnn"></i>CNN</span><span class="res"></span></div>` +
+      `<div class="pred" data-k="robust"><span class="who"><i class="key robust"></i>Robust</span><span class="res"></span></div>`;
+    tiles.appendChild(t); return t;
+  });
+  const cache = {};
+  function renderBench() {
+    const e = +epsInput.value, eps = G.eps[e];
+    epsOut.textContent = `ε = ${eps.toFixed(2)}`;
+    epsOut.setAttribute("aria-label", `epsilon ${eps.toFixed(2)}, about ${Math.round(eps * 255)} of 255 grey levels`);
+    const fooled = { cnn: 0, robust: 0 };
+    G.labels.forEach((lab, d) => {
+      const px = decoded[against][e][d];
+      paintDigit(tileEls[d].querySelector("canvas").getContext("2d"), px);
+      for (const k of ["cnn", "robust"]) {
+        const key = `${against}|${e}|${d}|${k}`;
+        const pr = cache[key] || (cache[key] = DigitNet.softmax(DigitNet.forward(nets[k], px)));
+        const top = pr.indexOf(Math.max(...pr)), bad = top !== lab;
+        if (bad) fooled[k]++;
+        const res = tileEls[d].querySelector(`.pred[data-k="${k}"] .res`);
+        res.textContent = bad ? `${top} ✗ ${pct(pr[top])}` : `${top} ${pct(pr[top])}`;
+        res.classList.toggle("fooled", bad);
+        res.title = bad ? `fooled: true digit is ${lab}` : "correct";
+      }
+    });
+    document.getElementById("tally").innerHTML =
+      `Attack crafted against <b>${NAMES[against]}</b> at ε = ${eps.toFixed(2)} (≈ ${Math.round(eps * 255)}/255 grey levels per pixel): ` +
+      `CNN fooled on <b>${fooled.cnn}/10</b>, Robust CNN fooled on <b>${fooled.robust}/10</b>.`;
+  }
+  epsInput.addEventListener("input", renderBench);
+  for (const [id, k] of [["ag-cnn", "cnn"], ["ag-robust", "robust"]]) {
+    document.getElementById(id).addEventListener("click", () => {
+      against = k;
+      document.getElementById("ag-cnn").setAttribute("aria-pressed", String(k === "cnn"));
+      document.getElementById("ag-robust").setAttribute("aria-pressed", String(k === "robust"));
+      renderBench();
+    });
+  }
+
+  function repaintAll() {
+    // Recolour existing strokes to the new theme's ink (alpha, and so the model input, is unchanged).
+    pctx.save(); pctx.globalCompositeOperation = "source-in"; pctx.fillStyle = css("--ink"); pctx.fillRect(0, 0, 280, 280); pctx.restore();
+    renderBench(); paintDigit(sctx, padPixels);
+  }
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", repaintAll); } catch (e) {}
+  new MutationObserver(repaintAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  renderBench();
+  loadSample(3);
+})();
+</script>
+</body>
+</html>
